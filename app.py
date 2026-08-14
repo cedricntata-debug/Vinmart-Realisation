@@ -3,6 +3,7 @@ import pandas as pd
 import folium
 from streamlit_folium import st_folium
 import os
+import base64
 
 # ---------------------------------------------------------
 # 1. CONFIGURATION DE LA PAGE & SÉCURITÉ
@@ -13,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Chemins absolus
+# Chemins absolus fiables
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 
@@ -36,7 +37,7 @@ if not st.session_state["authentifie"]:
     st.stop()
 
 # ---------------------------------------------------------
-# 2. CHARGEMENT DES DONNÉES
+# 2. CHARGEMENT DES DONNÉES ET IMAGES
 # ---------------------------------------------------------
 @st.cache_data
 def charger_donnees():
@@ -53,15 +54,32 @@ except Exception as e:
     st.error(f"Erreur de chargement du fichier 'Structure_medicale.csv' : {e}")
     st.stop()
 
+def get_image_path(nom_base):
+    if not nom_base:
+        return None
+    for ext in [".png", ".jpg", ".jpeg", ".PNG", ".JPG", ".webp"]:
+        p = os.path.join(ASSETS_DIR, f"{nom_base}{ext}")
+        if os.path.exists(p):
+            return p
+    return None
+
+def get_image_base64(path):
+    if path and os.path.exists(path):
+        with open(path, "rb") as f:
+            data_bytes = f.read()
+        ext = os.path.splitext(path)[1].lower().replace(".", "")
+        if ext == "jpg": ext = "jpeg"
+        return f"data:image/{ext};base64,{base64.b64encode(data_bytes).decode()}"
+    return None
+
 # ---------------------------------------------------------
-# 3. FILTRE ENTREPRISES / SITES - CARTES STYLISÉES
+# 3. FILTRE ENTREPRISES / SITES - ALIGNEMENT PARFAIT
 # ---------------------------------------------------------
 st.title("🤝 Les Réalisations Communautaires")
 
 if "entreprise_choisie" not in st.session_state:
     st.session_state["entreprise_choisie"] = "Toutes les Entreprises"
 
-# Configuration des 4 cartes d'entreprises
 entreprises_config = [
     {
         "id": "Toutes les Entreprises",
@@ -73,67 +91,73 @@ entreprises_config = [
     {
         "id": "SOMIKA - Lupoto",
         "titre": "SOMIKA - Lupoto",
-        "sous_titre": "Sociétés Minières du Katanga",
+        "sous_titre": "Site de Lupoto",
         "logo": "logo_somika",
         "icone": "⛏️"
     },
     {
         "id": "KIMIN",
         "titre": "KIMIN",
-        "sous_titre": "Kinsafu Mining",
+        "sous_titre": "Kinsafu Mining SAS",
         "logo": "logo_kimin",
         "icone": "🏗️"
     },
     {
         "id": "SOMIKA - Kimpe",
         "titre": "SOMIKA - Kimpe",
-        "sous_titre": "Site Minier de Kimpe",
+        "sous_titre": "Site de Kimpe",
         "logo": "logo_somika",
         "icone": "📍"
     }
 ]
 
-# Fonction de détection des images
-def get_image_path(nom_base):
-    if not nom_base:
-        return None
-    for ext in [".png", ".jpg", ".jpeg", ".PNG", ".JPG", ".webp"]:
-        p = os.path.join(ASSETS_DIR, f"{nom_base}{ext}")
-        if os.path.exists(p):
-            return p
-    return None
-
 st.markdown("##### 🏢 **Sélectionner l'Entité / Entreprise :**")
-cols_ent = st.columns(len(entreprises_config))
+cols_ent = st.columns(4)
 
 for i, ent in enumerate(entreprises_config):
     with cols_ent[i]:
         est_actif = (st.session_state["entreprise_choisie"] == ent["id"])
         
-        # Style visuel de la carte
         border_color = "#0284c7" if est_actif else "#e2e8f0"
         bg_color = "#f0f9ff" if est_actif else "#ffffff"
-        shadow = "0 4px 6px -1px rgba(2, 132, 199, 0.2)" if est_actif else "0 1px 3px rgba(0,0,0,0.05)"
+        shadow = "0 4px 6px -1px rgba(2, 132, 199, 0.25)" if est_actif else "0 1px 3px rgba(0,0,0,0.06)"
         
-        chemin_img = get_image_path(ent["logo"])
+        img_path = get_image_path(ent["logo"])
+        img_b64 = get_image_base64(img_path)
         
-        # En-tête visuel de la carte
-        if chemin_img:
-            st.markdown(f"""
-            <div style="border: 2px solid {border_color}; background-color: {bg_color}; border-radius: 10px; padding: 10px 8px 4px 8px; text-align: center; box-shadow: {shadow}; min-height: 80px; display: flex; align-items: center; justify-content: center;">
-            """, unsafe_allow_html=True)
-            st.image(chemin_img, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+        # Bloc d'affichage au dimensionnement et centrage stricts (Hauteur fixe 85px)
+        if img_b64:
+            contenu_visuel = f"""
+                <img src="{img_b64}" style="max-height: 48px; max-width: 90%; object-fit: contain; display: block; margin: 0 auto;">
+                <span style="font-size: 10px; color: #64748b; margin-top: 4px; font-weight: 500;">{ent['sous_titre']}</span>
+            """
         else:
-            st.markdown(f"""
-            <div style="border: 2px solid {border_color}; background-color: {bg_color}; border-radius: 10px; padding: 14px 8px; text-align: center; box-shadow: {shadow}; min-height: 80px; display: flex; flex-direction: column; justify-content: center;">
-                <span style="font-size: 22px;">{ent['icone']}</span>
-                <span style="font-weight: bold; font-size: 13px; color: {'#0284c7' if est_actif else '#334155'};">{ent['titre']}</span>
+            contenu_visuel = f"""
+                <span style="font-size: 24px; line-height: 1;">{ent['icone']}</span>
+                <span style="font-weight: bold; font-size: 12px; color: {'#0284c7' if est_actif else '#334155'}; margin-top: 2px;">{ent['titre']}</span>
                 <span style="font-size: 10px; color: #64748b;">{ent['sous_titre']}</span>
-            </div>
-            """, unsafe_allow_html=True)
+            """
+            
+        carte_html = f"""
+        <div style="
+            border: 2px solid {border_color}; 
+            background-color: {bg_color}; 
+            border-radius: 8px; 
+            height: 85px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            text-align: center; 
+            box-shadow: {shadow}; 
+            padding: 6px;
+            margin-bottom: 6px;">
+            {contenu_visuel}
+        </div>
+        """
+        st.markdown(carte_html, unsafe_allow_html=True)
 
-        # Bouton d'activation
+        # Bouton d'activation aligné
         btn_label = f"✓ {ent['titre']}" if est_actif else ent["titre"]
         btn_type = "primary" if est_actif else "secondary"
         if st.button(btn_label, key=f"btn_ent_{i}", type=btn_type, use_container_width=True):
@@ -142,7 +166,7 @@ for i, ent in enumerate(entreprises_config):
 
 entreprise_choisie = st.session_state["entreprise_choisie"]
 
-# Application du filtre entreprise sur les données
+# Application du filtre entreprise
 data_filtree_ent = data.copy()
 if entreprise_choisie != "Toutes les Entreprises":
     if "Entreprise" in data_filtree_ent.columns:
@@ -153,10 +177,10 @@ if entreprise_choisie != "Toutes les Entreprises":
         if filtre_texte.any():
             data_filtree_ent = data_filtree_ent[filtre_texte]
 
-st.markdown("<hr style='margin: 12px 0;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 10px 0 16px 0;'>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 4. BARRE LATÉRALE (GAUCHE) : FILTRES & FICHE SIGNALÉTIQUE
+# 4. BARRE LATÉRALE (GAUCHE) : FILTRES & TABLEAU DESCRIPTIF
 # ---------------------------------------------------------
 st.sidebar.title("🎛️ Filtres de Recherche")
 
@@ -175,7 +199,6 @@ if chefferie_selectionnee != "Toutes":
 st.sidebar.caption(f"Réalisations visibles : **{len(data_affichee)} / {len(data)}**")
 st.sidebar.markdown("---")
 
-# --- DESCRIPTION DE LA RÉALISATION ---
 st.sidebar.subheader("📋 Description de la Réalisation")
 
 liste_projets = ["📌 Toutes les réalisations"] + list(data_affichee["Name"].dropna().unique()) if not data_affichee.empty else []
@@ -246,7 +269,7 @@ if st.sidebar.button("Déconnexion"):
     st.rerun()
 
 # ---------------------------------------------------------
-# 5. DISPOSITION : CARTE (CENTRE) + LOGOS (DROITE)
+# 5. DISPOSITION : CARTE (CENTRE) + LOGOS INSTITUTIONNELS (DROITE)
 # ---------------------------------------------------------
 col_carte, col_logos = st.columns([5, 1])
 
@@ -260,10 +283,7 @@ with col_carte:
 
     m = folium.Map(location=[lat_centre, long_centre], zoom_start=niveau_zoom, tiles=None)
 
-    # 1. Plan OSM
     folium.TileLayer(tiles='OpenStreetMap', name='Plan (OpenStreetMap)', control=True).add_to(m)
-
-    # 2. Satellite Esri
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attr='Esri World Imagery',
@@ -272,7 +292,7 @@ with col_carte:
         max_zoom=19
     ).add_to(m)
 
-    # Marqueurs Croix Rouge Médicale (20px)
+    # Marqueurs Croix Rouge Médicale
     for idx, row in points_carte.iterrows():
         nom_projet = row.get("Name", "Réalisation")
         id_proj = row.get("ID_Projet", "N/A")
@@ -312,19 +332,21 @@ with col_carte:
 with col_logos:
     st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
     
-    st.markdown("<p style='font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 2px;'>FONDATION</p>", unsafe_allow_html=True)
-    p_fond = get_image_path("logo_vinmart_fondation")
-    if p_fond:
-        st.image(p_fond, use_container_width=True)
+    # 1. Logo Fondation Vinmart
+    st.markdown("<p style='font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px;'>FONDATION</p>", unsafe_allow_html=True)
+    fond_b64 = get_image_base64(get_image_path("logo_vinmart_fondation"))
+    if fond_b64:
+        st.markdown(f'<img src="{fond_b64}" style="max-height: 65px; max-width: 100%; object-fit: contain; margin-bottom: 8px;">', unsafe_allow_html=True)
     else:
         st.markdown("<div style='border: 1px dashed #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc;'><b style='color: #1e3a8a; font-size: 11px;'>Fondation Vinmart</b></div>", unsafe_allow_html=True)
         
     st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
     
-    st.markdown("<p style='font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 2px;'>GROUPE</p>", unsafe_allow_html=True)
-    p_grp = get_image_path("logo_vinmart_groupe")
-    if p_grp:
-        st.image(p_grp, use_container_width=True)
+    # 2. Logo Groupe Vinmart
+    st.markdown("<p style='font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px;'>GROUPE</p>", unsafe_allow_html=True)
+    grp_b64 = get_image_base64(get_image_path("logo_vinmart_groupe"))
+    if grp_b64:
+        st.markdown(f'<img src="{grp_b64}" style="max-height: 65px; max-width: 100%; object-fit: contain; margin-bottom: 8px;">', unsafe_allow_html=True)
     else:
         st.markdown("<div style='border: 1px dashed #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc;'><b style='color: #0f172a; font-size: 11px;'>Groupe Vinmart</b></div>", unsafe_allow_html=True)
 
