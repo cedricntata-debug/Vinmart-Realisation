@@ -1,0 +1,43 @@
+Name,Type_Engag,ID_Projet,Annee,Services,Budget,Lat,Longi,Photo,Entreprise,Groupement,Secteur
+CS Kajama,CDC 1,L-SCdc-001,2024,,,-11.6522048,27.2884317,,SOMIKA-LUPOTO,Inakiluba,Sante
+CS Kipopo,CDC 1,L-SCdc-002,2024,,,-11.5500818,27.3365559,,SOMIKA-LUPOTO,Inakiluba,Sante
+Dispensaire Kitanfya,Volontaire,L-SVolo-001,2021,,,-11.6283613,27.2927776,,SOMIKA-LUPOTO,Inakiluba,Sante
+CS Lupoto rail,CDC 1,L-SCdc-003,2022,,,-11.5853303,27.2346139,,SOMIKA-LUPOTO,Inakiluba,Sante
+CS Lupoto,DOT & REDEV,L-SDot-001,,,,-11.5854733,27.2348277,,SOMIKA-LUPOTO,Inakiluba,Sante
+Clinc Lupoto,Volontaire,L-SVolo-002,2019,,,-11.5897490,27.3005358,,SOMIKA-LUPOTO,Inakiluba,Sante
+MARCHE VINMART,Volontaire,L-Mar1,,,,-11.5941275,27.3070855,,SOMIKA-LUPOTO,Inakiluba,Economique
+Forage,CDC 1,L-For1,,,,-11.5853959,27.2350252,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For2,,,,-11.5842004,27.2342269,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For3,,,,-11.6184932,27.2934978,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For4,,,,-11.6265056,27.2930785,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For5,,,,-11.6281942,27.2928605,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For6,,,,-11.6517492,27.2885322,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For7,,,,-11.6505010,27.3253486,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For8,,,,-11.6484590,27.3204427,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For9,,,,-11.6497678,27.3155506,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For10,,,,-11.6272520,27.3311886,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For11,,,,-11.6076375,27.3025495,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For12,,,,-11.6076538,27.3046342,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For13,,,,-11.5566100,27.2625408,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For14,,,,-11.5496779,27.3367493,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For15,,,,-11.5501075,27.3341809,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For16,,,,-11.5479773,27.3293911,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For17,,,,-11.5462197,27.3316990,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For18,,,,-11.5949129,27.3091342,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For19,,,,-11.5928105,27.3114335,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For20,,,,-11.5949573,27.3048503,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For21,,,,-11.5915623,27.3017664,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For22,,,,-11.5894749,27.3000839,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For23,,,,-11.5731819,27.2938162,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,CDC 1,L-For24,,,,-11.5714288,27.2979575,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+Forage,DOT & REDEV,L-For25,,,,-11.5566834,27.2593285,,SOMIKA-LUPOTO,Inakiluba,Eau & Energie
+FOUR A PAIN,Volontaire,L-BO1,,,,-11.5938920,27.3037082,,SOMIKA-LUPOTO,Inakiluba,Economique
+FOUR A PAIN,Volontaire,L-BO2,,,,-11.5863748,27.2361287,,SOMIKA-LUPOTO,Inakiluba,Economique
+CENTRE DE FORMATION,DOT & REDEV,L-EDot-001,,,,-11.5946477,27.3083142,,SOMIKA-LUPOTO,Inakiluba,Education
+EP KAFUNDA,DOT & REDEV,L-EDot-002,,,,-11.5564624,27.2590100,,SOMIKA-LUPOTO,Inakiluba,Education
+EP KIPOPO 1,CDC 1,L-ECdc-006,2026,,,-11.5486769,27.3261286,,SOMIKA-LUPOTO,Inakiluba,Education
+EP KIPOPO 2,CDC 1,L-ECdc-004,2022,,,-11.5494651,27.3368501,,SOMIKA-LUPOTO,Inakiluba,Education
+EP KITANFYA,CDC 1,L-ECdc-005,2025,,,-11.6287820,27.2918089,,SOMIKA-LUPOTO,Inakiluba,Education
+EP LUPOTO RAIL,CDC 1,L-ECdc-003,2022,,,-11.5858576,27.2352261,,SOMIKA-LUPOTO,Inakiluba,Education
+EP MUKOMA 1,CDC 1,L-ECdc-002,2021,,,-11.5946364,27.3090795,,SOMIKA-LUPOTO,Inakiluba,Education
+INSTITUT MUKOMA 1,CDC 1,L-ECdc-001,2021,,,-11.5735877,27.2939237,,SOMIKA-LUPOTO,Inakiluba,Education
