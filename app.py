@@ -13,7 +13,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Chemins de base
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 
@@ -36,22 +35,34 @@ if not st.session_state["authentifie"]:
     st.stop()
 
 # ---------------------------------------------------------
-# 2. CHARGEMENT DES DONNÉES
+# 2. CHARGEMENT ROBUSTE DES DONNÉES (CSV / QGIS)
 # ---------------------------------------------------------
-@st.cache_data
-def charger_donnees():
-    csv_path = os.path.join(BASE_DIR, "Structure_medicale.csv")
-    df = pd.read_csv(csv_path)
-    df["Lat"] = pd.to_numeric(df["Lat"], errors="coerce")
-    df["Longi"] = pd.to_numeric(df["Longi"], errors="coerce")
-    df = df.dropna(subset=["Lat", "Longi"])
+def nettoyer_coords(df):
+    if "Lat" in df.columns and "Longi" in df.columns:
+        df["Lat"] = df["Lat"].astype(str).str.replace(",", ".")
+        df["Longi"] = df["Longi"].astype(str).str.replace(",", ".")
+        df["Lat"] = pd.to_numeric(df["Lat"], errors="coerce")
+        df["Longi"] = pd.to_numeric(df["Longi"], errors="coerce")
+        return df.dropna(subset=["Lat", "Longi"])
     return df
 
-try:
-    data = charger_donnees()
-except Exception as e:
-    st.error(f"Erreur de chargement du fichier CSV : {e}")
-    st.stop()
+@st.cache_data
+def charger_toutes_donnees():
+    # 1. Réalisations
+    p_real = os.path.join(BASE_DIR, "Structure_medicale.csv")
+    df_real = nettoyer_coords(pd.read_csv(p_real)) if os.path.exists(p_real) else pd.DataFrame()
+    
+    # 2. Villages impactés
+    p_vil = os.path.join(BASE_DIR, "villages_impactes.csv")
+    df_vil = nettoyer_coords(pd.read_csv(p_vil)) if os.path.exists(p_vil) else pd.DataFrame()
+    
+    # 3. Bureaux / Sites
+    p_sites = os.path.join(BASE_DIR, "sites_offices.csv")
+    df_sites = nettoyer_coords(pd.read_csv(p_sites)) if os.path.exists(p_sites) else pd.DataFrame()
+    
+    return df_real, df_vil, df_sites
+
+data_realisations, data_villages, data_sites = charger_toutes_donnees()
 
 def get_image_path(nom_base):
     if not nom_base:
@@ -71,34 +82,10 @@ if "entreprise_choisie" not in st.session_state:
     st.session_state["entreprise_choisie"] = "Toutes les Entreprises"
 
 entreprises_config = [
-    {
-        "id": "Toutes les Entreprises",
-        "titre": "Vue Globale",
-        "sous_titre": "Toutes réalisations",
-        "logo": None,
-        "icone": "🌐"
-    },
-    {
-        "id": "SOMIKA - Lupoto",
-        "titre": "SOMIKA - Lupoto",
-        "sous_titre": "Site de Lupoto",
-        "logo": "logo_somika",
-        "icone": "⛏️"
-    },
-    {
-        "id": "KIMIN",
-        "titre": "KIMIN",
-        "sous_titre": "Kinsafu Mining SAS",
-        "logo": "logo_kimin",
-        "icone": "🏗️"
-    },
-    {
-        "id": "SOMIKA - Kimpe",
-        "titre": "SOMIKA - Kimpe",
-        "sous_titre": "Site de Kimpe",
-        "logo": "logo_somika",
-        "icone": "📍"
-    }
+    {"id": "Toutes les Entreprises", "titre": "Vue Globale", "sous_titre": "Toutes réalisations", "logo": None, "icone": "🌐"},
+    {"id": "SOMIKA - Lupoto", "titre": "SOMIKA - Lupoto", "sous_titre": "Site de Lupoto", "logo": "logo_somika", "icone": "⛏️"},
+    {"id": "KIMIN", "titre": "KIMIN", "sous_titre": "Kinsafu Mining SAS", "logo": "logo_kimin", "icone": "🏗️"},
+    {"id": "SOMIKA - Kimpe", "titre": "SOMIKA - Kimpe", "sous_titre": "Site de Kimpe", "logo": "logo_somika", "icone": "📍"}
 ]
 
 st.markdown("##### 🏢 **Sélectionner l'Entité / Entreprise :**")
@@ -107,12 +94,9 @@ cols_ent = st.columns(4)
 for i, ent in enumerate(entreprises_config):
     with cols_ent[i]:
         est_actif = (st.session_state["entreprise_choisie"] == ent["id"])
-        
-        # Zone visuelle (Hauteur fixe et image centrée)
         img_path = get_image_path(ent["logo"])
         
         if img_path:
-            # Affiche l'image via st.image avec une largeur fixe de 110px pour que Somika et KIMIN soient de même taille
             col_g, col_img, col_d = st.columns([1, 2, 1])
             with col_img:
                 st.image(img_path, width=110)
@@ -123,7 +107,6 @@ for i, ent in enumerate(entreprises_config):
             </div>
             """, unsafe_allow_html=True)
             
-        # Bouton cliquable
         btn_label = f"✓ {ent['titre']}" if est_actif else ent["titre"]
         btn_type = "primary" if est_actif else "secondary"
         if st.button(btn_label, key=f"btn_ent_{i}", type=btn_type, use_container_width=True):
@@ -132,43 +115,58 @@ for i, ent in enumerate(entreprises_config):
 
 entreprise_choisie = st.session_state["entreprise_choisie"]
 
-# Application du filtre entreprise
-data_filtree_ent = data.copy()
-if entreprise_choisie != "Toutes les Entreprises":
-    if "Entreprise" in data_filtree_ent.columns:
-        data_filtree_ent = data_filtree_ent[data_filtree_ent["Entreprise"] == entreprise_choisie]
-    else:
-        mot_cle = entreprise_choisie.split(" ")[0]
-        filtre_texte = data_filtree_ent.apply(lambda r: r.astype(str).str.contains(mot_cle, case=False).any(), axis=1)
-        if filtre_texte.any():
-            data_filtree_ent = data_filtree_ent[filtre_texte]
+# Fonction de filtrage par entreprise sur n'importe quelle table
+def filtrer_par_ent(df):
+    if df.empty or entreprise_choisie == "Toutes les Entreprises":
+        return df
+    col_ent = next((c for c in ["Entreprise", "Entreprise_Zone"] if c in df.columns), None)
+    if col_ent:
+        mot_cle = "SOMIKA" if "SOMIKA" in entreprise_choisie else ("KIMIN" if "KIMIN" in entreprise_choisie or "KISANFU" in entreprise_choisie else entreprise_choisie)
+        if "Lupoto" in entreprise_choisie:
+            return df[df[col_ent].str.contains("LUPOTO", case=False, na=False)]
+        elif "Kimpe" in entreprise_choisie:
+            return df[df[col_ent].str.contains("KIMPE", case=False, na=False)]
+        elif "KIMIN" in entreprise_choisie:
+            return df[df[col_ent].str.contains("KIMIN|KISANFU", case=False, na=False)]
+    return df
+
+df_real_filtree = filtrer_par_ent(data_realisations)
+df_vil_filtree = filtrer_par_ent(data_villages)
+df_sites_filtree = filtrer_par_ent(data_sites)
 
 st.markdown("<hr style='margin: 8px 0 16px 0;'>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 4. BARRE LATÉRALE (GAUCHE) : FILTRES & TABLEAU DESCRIPTIF
+# 4. BARRE LATÉRALE (GAUCHE) : FILTRES & COUCHES
 # ---------------------------------------------------------
 st.sidebar.title("🎛️ Filtres de Recherche")
 
 # Filtre Engagement
-types_engag = ["Tous"] + list(data_filtree_ent["Type_Engag"].dropna().unique()) if "Type_Engag" in data_filtree_ent.columns else ["Tous"]
+types_engag = ["Tous"] + list(df_real_filtree["Type_Engag"].dropna().unique()) if ("Type_Engag" in df_real_filtree.columns and not df_real_filtree.empty) else ["Tous"]
 type_selectionne = st.sidebar.selectbox("Type d'engagement :", types_engag)
 
 # Filtre Chefferie
-chefferies = ["Toutes"] + list(data_filtree_ent["Chefferie"].dropna().unique()) if "Chefferie" in data_filtree_ent.columns else ["Toutes"]
+chefferies = ["Toutes"] + list(df_real_filtree["Chefferie"].dropna().unique()) if ("Chefferie" in df_real_filtree.columns and not df_real_filtree.empty) else ["Toutes"]
 chefferie_selectionnee = st.sidebar.selectbox("Chefferie :", chefferies)
 
-data_affichee = data_filtree_ent.copy()
-if type_selectionne != "Tous":
-    data_affichee = data_affichee[data_affichee["Type_Engag"] == type_selectionne]
-if chefferie_selectionnee != "Toutes":
-    data_affichee = data_affichee[data_affichee["Chefferie"] == chefferie_selectionnee]
+data_affichee = df_real_filtree.copy()
+if not data_affichee.empty:
+    if type_selectionne != "Tous":
+        data_affichee = data_affichee[data_affichee["Type_Engag"] == type_selectionne]
+    if chefferie_selectionnee != "Toutes":
+        data_affichee = data_affichee[data_affichee["Chefferie"] == chefferie_selectionnee]
 
-st.sidebar.caption(f"Réalisations visibles : **{len(data_affichee)} / {len(data)}**")
+# Gestion des calques territoriaux
+st.sidebar.markdown("---")
+st.sidebar.subheader("🗺️ Couches Géographiques")
+afficher_villages = st.sidebar.checkbox("🏘️ Afficher les Villages Impactés", value=True)
+afficher_bureaux = st.sidebar.checkbox("🏢 Afficher les Sièges / Bureaux", value=True)
+
+st.sidebar.caption(f"Réalisations visibles : **{len(data_affichee)}** | Villages : **{len(df_vil_filtree)}**")
 st.sidebar.markdown("---")
 
+# Fiche Signalétique
 st.sidebar.subheader("📋 Description de la Réalisation")
-
 liste_projets = ["📌 Toutes les réalisations"] + list(data_affichee["Name"].dropna().unique()) if not data_affichee.empty else []
 
 if liste_projets:
@@ -226,10 +224,10 @@ if liste_projets:
             st.sidebar.image(lien_photo, caption=info.get("Name"), use_container_width=True)
     else:
         points_carte = data_affichee
-        st.sidebar.info(f"💡 Affichage de l'ensemble des **{len(points_carte)}** réalisations.")
+        st.sidebar.info(f"💡 Affichage de l'ensemble des réalisations.")
 else:
     points_carte = pd.DataFrame()
-    st.sidebar.warning("Aucune réalisation trouvée.")
+    st.sidebar.warning("Aucune réalisation trouvée pour ces filtres.")
 
 st.sidebar.markdown("---")
 if st.sidebar.button("Déconnexion"):
@@ -242,9 +240,11 @@ if st.sidebar.button("Déconnexion"):
 col_carte, col_logos = st.columns([5, 1])
 
 with col_carte:
-    if not points_carte.empty:
-        lat_centre = float(points_carte["Lat"].mean())
-        long_centre = float(points_carte["Longi"].mean())
+    # Centrage de la carte
+    ref_df = points_carte if not points_carte.empty else (df_vil_filtree if not df_vil_filtree.empty else df_sites_filtree)
+    if not ref_df.empty:
+        lat_centre = float(ref_df["Lat"].mean())
+        long_centre = float(ref_df["Longi"].mean())
         niveau_zoom = 14 if len(points_carte) == 1 else 11
     else:
         lat_centre, long_centre, niveau_zoom = -11.65, 27.28, 11
@@ -260,39 +260,77 @@ with col_carte:
         max_zoom=19
     ).add_to(m)
 
-    # Marqueurs Croix Rouge
+    # 1. COUCHE : VILLAGES IMPACTÉS
+    if afficher_villages and not df_vil_filtree.empty:
+        groupe_vil = folium.FeatureGroup(name="🏘️ Villages Impactés", show=True)
+        col_nom_vil = "Villages" if "Villages" in df_vil_filtree.columns else "Nom_Village"
+        
+        for idx, row in df_vil_filtree.iterrows():
+            nom_v = row.get(col_nom_vil, "Village")
+            cheff_v = row.get("Chefferie", "N/A")
+            group_v = row.get("Groupement", "N/A")
+            id_v = row.get("ID_Village", "N/A")
+            
+            folium.CircleMarker(
+                location=[float(row["Lat"]), float(row["Longi"])],
+                radius=5,
+                color="#059669",
+                fill=True,
+                fill_color="#34d399",
+                fill_opacity=0.85,
+                weight=1.5,
+                tooltip=f"<b>Village : {nom_v}</b> ({id_v})",
+                popup=f"<b>Village : {nom_v}</b><br>Groupement : {group_v}<br>Chefferie : {cheff_v}"
+            ).add_to(groupe_vil)
+            
+        groupe_vil.add_to(m)
+
+    # 2. COUCHE : BUREAUX / SIÈGES DES SITES
+    if afficher_bureaux and not df_sites_filtree.empty:
+        groupe_offices = folium.FeatureGroup(name="🏢 Sièges & Bureaux", show=True)
+        for idx, row in df_sites_filtree.iterrows():
+            nom_site = row.get("Nom", "Bureau")
+            ent_site = row.get("Entreprise", "N/A")
+            
+            # Badge Bâtiment stylisé
+            office_icon_html = f"""
+            <div style="background-color: #1e3a8a; border: 2px solid white; border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+                <span style="color: white; font-size: 14px;">🏢</span>
+            </div>
+            """
+            custom_office_icon = folium.DivIcon(html=office_icon_html, icon_size=(26, 26), icon_anchor=(13, 13))
+            
+            folium.Marker(
+                location=[float(row["Lat"]), float(row["Longi"])],
+                popup=f"<b>{nom_site}</b><br>Entité : {ent_site}",
+                tooltip=f"🏢 {nom_site} ({ent_site})",
+                icon=custom_office_icon
+            ).add_to(groupe_offices)
+            
+        groupe_offices.add_to(m)
+
+    # 3. COUCHE : RÉALISATIONS COMMUNAUTAIRES
+    groupe_real = folium.FeatureGroup(name="🏥 Réalisations Communautaires", show=True)
     for idx, row in points_carte.iterrows():
         nom_projet = row.get("Name", "Réalisation")
         id_proj = row.get("ID_Projet", "N/A")
         type_eng = row.get("Type_Engag", "N/A")
         
         icon_html = """
-        <div style="
-            background-color: white; 
-            border: 1.5px solid #dc2626; 
-            border-radius: 50%; 
-            width: 20px; 
-            height: 20px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            box-shadow: 0 1px 4px rgba(0,0,0,0.35);">
+        <div style="background-color: white; border: 1.5px solid #dc2626; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.35);">
             <span style="color: #dc2626; font-size: 13px; font-weight: bold; line-height: 1;">+</span>
         </div>
         """
-        
-        custom_icon = folium.DivIcon(
-            html=icon_html,
-            icon_size=(20, 20),
-            icon_anchor=(10, 10)
-        )
+        custom_icon = folium.DivIcon(html=icon_html, icon_size=(20, 20), icon_anchor=(10, 10))
         
         folium.Marker(
             location=[float(row["Lat"]), float(row["Longi"])],
             popup=f"<b>{nom_projet}</b><br>ID: {id_proj}<br>Engagement: {type_eng}",
             tooltip=f"{nom_projet} ({type_eng})",
             icon=custom_icon
-        ).add_to(m)
+        ).add_to(groupe_real)
+
+    groupe_real.add_to(m)
 
     folium.LayerControl(collapsed=True).add_to(m)
     st_folium(m, width="100%", height=600)
