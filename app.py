@@ -35,18 +35,16 @@ if not st.session_state["authentifie"]:
     st.stop()
 
 # ---------------------------------------------------------
-# 2. CHARGEMENT ET NETTOYAGE DES DONNÉES (CSV & QGIS)
+# 2. CHARGEMENT ET NETTOYAGE DES DONNÉES
 # ---------------------------------------------------------
 def formater_donnees(df):
     if df.empty:
         return df
-    # Nettoyage des coordonnées (prise en compte des virgules françaises de QGIS)
     for col in ["Lat", "Longi", "lat", "longi", "latitude", "longitude"]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(",", ".").str.strip()
             df[col] = pd.to_numeric(df[col], errors="coerce")
     
-    # Harmonisation des noms de colonnes Lat/Longi
     if "lat" in df.columns and "Lat" not in df.columns: df["Lat"] = df["lat"]
     if "longi" in df.columns and "Longi" not in df.columns: df["Longi"] = df["longi"]
     
@@ -76,7 +74,7 @@ def get_image_path(nom_base):
     return None
 
 # ---------------------------------------------------------
-# 3. FILTRE PAR ENTREPRISE / SITE
+# 3. FILTRE ENTREPRISES / SITES
 # ---------------------------------------------------------
 st.title("🤝 Les Réalisations Communautaires")
 
@@ -117,42 +115,38 @@ for i, ent in enumerate(entreprises_config):
 
 entreprise_actuelle = st.session_state["entreprise_choisie"]
 
-# Logique de filtrage flexible (insensible à la casse et aux tirets)
-def filtrer_par_entite(df):
-    if df.empty or entreprise_actuelle == "Toutes les Entreprises":
-        return df
+# Fonction pour tester si une ligne appartient à l'entreprise sélectionnée
+def appartient_a_entreprise(row, entite_cible):
+    if entite_cible == "Toutes les Entreprises":
+        return True
     
-    col_ent = next((c for c in ["Entreprise", "Entreprise_Zone", "entreprise"] if c in df.columns), None)
-    if not col_ent:
-        return df
-    
-    serie = df[col_ent].astype(str).str.upper()
-    if "LUPOTO" in entreprise_actuelle.upper():
-        return df[serie.str.contains("LUPOTO")]
-    elif "KIMPE" in entreprise_actuelle.upper():
-        return df[serie.str.contains("KIMPE")]
-    elif "KIMIN" in entreprise_actuelle.upper():
-        return df[serie.str.contains("KIMIN|KISANFU|BAYEKE|NGUBA")]
-    return df
+    val_texte = " ".join([str(v) for v in row.values]).upper()
+    if "LUPOTO" in entite_cible.upper():
+        return "LUPOTO" in val_texte
+    elif "KIMPE" in entite_cible.upper():
+        return "KIMPE" in val_texte
+    elif "KIMIN" in entite_cible.upper():
+        return any(k in val_texte for k in ["KIMIN", "KISANFU", "BAYEKE", "NGUBA"])
+    return False
 
-df_real_filtree = filtrer_par_entite(data_realisations)
-df_vil_filtree = filtrer_par_entite(data_villages)
-df_sites_filtree = filtrer_par_entite(data_sites)
+# Données actives pour les tableaux
+df_real_actives = data_realisations[data_realisations.apply(lambda r: appartient_a_entreprise(r, entreprise_actuelle), axis=1)] if not data_realisations.empty else pd.DataFrame()
+df_vil_actives = data_villages[data_villages.apply(lambda r: appartient_a_entreprise(r, entreprise_actuelle), axis=1)] if not data_villages.empty else pd.DataFrame()
 
 st.markdown("<hr style='margin: 8px 0 16px 0;'>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 4. BARRE LATÉRALE (GAUCHE) : FILTRES & DESCRIPTION
+# 4. BARRE LATÉRALE (GAUCHE) : FILTRES & FICHE SIGNALÉTIQUE
 # ---------------------------------------------------------
 st.sidebar.title("🎛️ Filtres de Recherche")
 
-types_engag = ["Tous"] + list(df_real_filtree["Type_Engag"].dropna().unique()) if ("Type_Engag" in df_real_filtree.columns and not df_real_filtree.empty) else ["Tous"]
+types_engag = ["Tous"] + list(df_real_actives["Type_Engag"].dropna().unique()) if ("Type_Engag" in df_real_actives.columns and not df_real_actives.empty) else ["Tous"]
 type_selectionne = st.sidebar.selectbox("Type d'engagement :", types_engag)
 
-chefferies = ["Toutes"] + list(df_real_filtree["Chefferie"].dropna().unique()) if ("Chefferie" in df_real_filtree.columns and not df_real_filtree.empty) else ["Toutes"]
+chefferies = ["Toutes"] + list(df_real_actives["Chefferie"].dropna().unique()) if ("Chefferie" in df_real_actives.columns and not df_real_actives.empty) else ["Toutes"]
 chefferie_selectionnee = st.sidebar.selectbox("Chefferie :", chefferies)
 
-data_affichee = df_real_filtree.copy()
+data_affichee = df_real_actives.copy()
 if not data_affichee.empty:
     if type_selectionne != "Tous":
         data_affichee = data_affichee[data_affichee["Type_Engag"] == type_selectionne]
@@ -164,7 +158,7 @@ st.sidebar.subheader("🗺️ Couches Géographiques")
 afficher_villages = st.sidebar.checkbox("🏘️ Afficher les Villages Impactés", value=True)
 afficher_bureaux = st.sidebar.checkbox("🏢 Afficher les Sièges & Bureaux", value=True)
 
-st.sidebar.caption(f"Réalisations : **{len(data_affichee)}** | Villages : **{len(df_vil_filtree)}**")
+st.sidebar.caption(f"Réalisations actives : **{len(data_affichee)}** | Villages actifs : **{len(df_vil_actives)}**")
 st.sidebar.markdown("---")
 
 # Fiche Signalétique
@@ -175,8 +169,8 @@ if liste_projets:
     projet_choisi = st.sidebar.selectbox("Sélectionner une réalisation :", liste_projets)
     
     if projet_choisi != "📌 Toutes les réalisations":
-        points_carte = data_affichee[data_affichee["Name"] == projet_choisi]
-        info = points_carte.iloc[0]
+        points_zoom_fiche = data_affichee[data_affichee["Name"] == projet_choisi]
+        info = points_zoom_fiche.iloc[0]
         
         annee_val = str(int(info.get('Annee'))) if (pd.notna(info.get('Annee')) and isinstance(info.get('Annee'), float)) else str(info.get('Annee', 'N/A'))
         services_val = str(info.get('Services', '-')) if pd.notna(info.get('Services')) and str(info.get('Services')) != "nan" else "-"
@@ -200,7 +194,7 @@ if liste_projets:
                 <td style="padding: 6px; font-weight: bold; color: #475569;">Chefferie</td>
                 <td style="padding: 6px;">{info.get('Chefferie', 'N/A')}</td>
             </tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;">
+            <tr style="border-bottom: 1px solid #e2e8f0; background-color: #f8fafc;">
                 <td style="padding: 6px; font-weight: bold; color: #475569;">Année</td>
                 <td style="padding: 6px;">{annee_val}</td>
             </tr>
@@ -225,10 +219,10 @@ if liste_projets:
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             st.sidebar.image(lien_photo, caption=info.get("Name"), use_container_width=True)
     else:
-        points_carte = data_affichee
+        points_zoom_fiche = pd.DataFrame()
         st.sidebar.info("💡 Affichage de l'ensemble des réalisations.")
 else:
-    points_carte = pd.DataFrame()
+    points_zoom_fiche = pd.DataFrame()
     st.sidebar.warning("Aucune réalisation trouvée pour ces filtres.")
 
 st.sidebar.markdown("---")
@@ -237,7 +231,7 @@ if st.sidebar.button("Déconnexion"):
     st.rerun()
 
 # ---------------------------------------------------------
-# 5. DISPOSITION : CARTE DYNAMIQUE + LOGOS
+# 5. DISPOSITION : CARTE DYNAMIQUE AVEC FOCUS ET SURBRILLANCE
 # ---------------------------------------------------------
 col_carte, col_logos = st.columns([5, 1])
 
@@ -253,100 +247,140 @@ with col_carte:
         max_zoom=19
     ).add_to(m)
 
-    coords_visibles = []
+    coords_focus = []
 
-    # 1. COUCHE : VILLAGES IMPACTÉS
-    if afficher_villages and not df_vil_filtree.empty:
+    # 1. COUCHE VILLAGES IMPACTÉS (Actifs en Vert Vif / Autres en Estompé)
+    if afficher_villages and not data_villages.empty:
         groupe_vil = folium.FeatureGroup(name="🏘️ Villages Impactés", show=True)
-        col_nom_vil = next((c for c in ["Villages", "Nom_Village", "Nom", "village"] if c in df_vil_filtree.columns), "Villages")
+        col_nom_vil = next((c for c in ["Villages", "Nom_Village", "Nom", "village"] if c in data_villages.columns), "Villages")
         
-        for idx, row in df_vil_filtree.iterrows():
+        for idx, row in data_villages.iterrows():
             lat_v, lon_v = float(row["Lat"]), float(row["Longi"])
-            coords_visibles.append([lat_v, lon_v])
+            est_du_site = appartient_a_entreprise(row, entreprise_actuelle)
             
             nom_v = row.get(col_nom_vil, "Village")
             cheff_v = row.get("Chefferie", "N/A")
             group_v = row.get("Groupement", "N/A")
             id_v = row.get("ID_Village", "")
             
-            folium.CircleMarker(
-                location=[lat_v, lon_v],
-                radius=6,
-                color="#047857",
-                fill=True,
-                fill_color="#10b981",
-                fill_opacity=0.9,
-                weight=2,
-                tooltip=f"<b>🏘️ Village : {nom_v}</b> ({id_v})",
-                popup=f"<b>Village : {nom_v}</b><br>Groupement : {group_v}<br>Chefferie : {cheff_v}"
-            ).add_to(groupe_vil)
+            if est_du_site:
+                coords_focus.append([lat_v, lon_v])
+                folium.CircleMarker(
+                    location=[lat_v, lon_v],
+                    radius=6,
+                    color="#047857",
+                    fill=True,
+                    fill_color="#10b981",
+                    fill_opacity=0.95,
+                    weight=2,
+                    tooltip=f"<b>🏘️ Village : {nom_v}</b> ({id_v})",
+                    popup=f"<b>Village : {nom_v}</b><br>Groupement : {group_v}<br>Chefferie : {cheff_v}"
+                ).add_to(groupe_vil)
+            else:
+                # Mode surbrillance / arrière-plan estompé
+                folium.CircleMarker(
+                    location=[lat_v, lon_v],
+                    radius=4,
+                    color="#94a3b8",
+                    fill=True,
+                    fill_color="#cbd5e1",
+                    fill_opacity=0.35,
+                    weight=1,
+                    tooltip=f"🏘️ {nom_v} (Autre secteur)",
+                ).add_to(groupe_vil)
             
         groupe_vil.add_to(m)
 
-    # 2. COUCHE : BUREAUX & SIÈGES DES SITES
-    if afficher_bureaux and not df_sites_filtree.empty:
+    # 2. COUCHE BUREAUX / SIÈGES
+    if afficher_bureaux and not data_sites.empty:
         groupe_offices = folium.FeatureGroup(name="🏢 Sièges & Bureaux", show=True)
-        col_nom_site = next((c for c in ["Nom", "Name", "nom"] if c in df_sites_filtree.columns), "Nom")
+        col_nom_site = next((c for c in ["Nom", "Name", "nom"] if c in data_sites.columns), "Nom")
         
-        for idx, row in df_sites_filtree.iterrows():
+        for idx, row in data_sites.iterrows():
             lat_s, lon_s = float(row["Lat"]), float(row["Longi"])
-            coords_visibles.append([lat_s, lon_s])
-            
+            est_du_site = appartient_a_entreprise(row, entreprise_actuelle)
             nom_site = row.get(col_nom_site, "Bureau")
             ent_site = row.get("Entreprise", "N/A")
             
-            office_icon_html = """
-            <div style="background-color: #1e3a8a; border: 2px solid white; border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
-                <span style="color: white; font-size: 14px;">🏢</span>
-            </div>
-            """
-            folium.Marker(
-                location=[lat_s, lon_s],
-                popup=f"<b>{nom_site}</b><br>Entité : {ent_site}",
-                tooltip=f"🏢 {nom_site} ({ent_site})",
-                icon=folium.DivIcon(html=office_icon_html, icon_size=(26, 26), icon_anchor=(13, 13))
-            ).add_to(groupe_offices)
+            if est_du_site:
+                coords_focus.append([lat_s, lon_s])
+                office_icon_html = """
+                <div style="background-color: #1e3a8a; border: 2px solid white; border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+                    <span style="color: white; font-size: 14px;">🏢</span>
+                </div>
+                """
+                folium.Marker(
+                    location=[lat_s, lon_s],
+                    popup=f"<b>{nom_site}</b><br>Entité : {ent_site}",
+                    tooltip=f"🏢 {nom_site} ({ent_site})",
+                    icon=folium.DivIcon(html=office_icon_html, icon_size=(26, 26), icon_anchor=(13, 13))
+                ).add_to(groupe_offices)
+            else:
+                # Bureau en surbrillance estompée
+                office_dim_html = """
+                <div style="background-color: rgba(148, 163, 184, 0.4); border: 1px dashed #64748b; border-radius: 6px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 11px; opacity: 0.6;">🏢</span>
+                </div>
+                """
+                folium.Marker(
+                    location=[lat_s, lon_s],
+                    tooltip=f"🏢 {nom_site} (Autre site)",
+                    icon=folium.DivIcon(html=office_dim_html, icon_size=(20, 20), icon_anchor=(10, 10))
+                ).add_to(groupe_offices)
             
         groupe_offices.add_to(m)
 
-    # 3. COUCHE : RÉALISATIONS COMMUNAUTAIRES
+    # 3. COUCHE RÉALISATIONS COMMUNAUTAIRES
     groupe_real = folium.FeatureGroup(name="🏥 Réalisations Communautaires", show=True)
-    for idx, row in points_carte.iterrows():
+    for idx, row in data_realisations.iterrows():
         lat_r, lon_r = float(row["Lat"]), float(row["Longi"])
-        coords_visibles.append([lat_r, lon_r])
-        
+        est_du_site = appartient_a_entreprise(row, entreprise_actuelle)
         nom_projet = row.get("Name", "Réalisation")
         id_proj = row.get("ID_Projet", "N/A")
         type_eng = row.get("Type_Engag", "N/A")
         
-        icon_html = """
-        <div style="background-color: white; border: 1.5px solid #dc2626; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.35);">
-            <span style="color: #dc2626; font-size: 13px; font-weight: bold; line-height: 1;">+</span>
-        </div>
-        """
-        folium.Marker(
-            location=[lat_r, lon_r],
-            popup=f"<b>{nom_projet}</b><br>ID: {id_proj}<br>Engagement: {type_eng}",
-            tooltip=f"{nom_projet} ({type_eng})",
-            icon=folium.DivIcon(html=icon_html, icon_size=(20, 20), icon_anchor=(10, 10))
-        ).add_to(groupe_real)
+        if est_du_site:
+            coords_focus.append([lat_r, lon_r])
+            icon_html = """
+            <div style="background-color: white; border: 1.5px solid #dc2626; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.35);">
+                <span style="color: #dc2626; font-size: 13px; font-weight: bold; line-height: 1;">+</span>
+            </div>
+            """
+            folium.Marker(
+                location=[lat_r, lon_r],
+                popup=f"<b>{nom_projet}</b><br>ID: {id_proj}<br>Engagement: {type_eng}",
+                tooltip=f"{nom_projet} ({type_eng})",
+                icon=folium.DivIcon(html=icon_html, icon_size=(20, 20), icon_anchor=(10, 10))
+            ).add_to(groupe_real)
+        else:
+            # Réalisations en surbrillance estompée
+            dim_real_html = """
+            <div style="background-color: rgba(254, 226, 226, 0.4); border: 1px solid rgba(220, 38, 38, 0.3); border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center;">
+                <span style="color: rgba(220, 38, 38, 0.4); font-size: 9px;">+</span>
+            </div>
+            """
+            folium.Marker(
+                location=[lat_r, lon_r],
+                tooltip=f"{nom_projet} (Autre secteur)",
+                icon=folium.DivIcon(html=dim_real_html, icon_size=(14, 14), icon_anchor=(7, 7))
+            ).add_to(groupe_real)
 
     groupe_real.add_to(m)
 
-    # --- RECADRAGE ET ZOOM AUTOMATIQUE SUR LES POINTS ACTIFS ---
-    if len(points_carte) == 1:
-        # Si une seule réalisation est sélectionnée dans la fiche, zoom rapproché
-        m.location = [float(points_carte.iloc[0]["Lat"]), float(points_carte.iloc[0]["Longi"])]
+    # --- RECADRAGE ET CENTRAGE DYNAMIQUE SUR LES POINTS DU SITE CHOISI ---
+    if not points_zoom_fiche.empty:
+        # 1. Priorité au projet sélectionné dans la fiche latérale
+        m.location = [float(points_zoom_fiche.iloc[0]["Lat"]), float(points_zoom_fiche.iloc[0]["Longi"])]
         m.zoom_start = 14
-    elif coords_visibles:
-        # Si vue globale ou entreprise choisie, adapte automatiquement l'emprise
-        m.fit_bounds(coords_visibles, padding=(30, 30))
+    elif coords_focus:
+        # 2. Zoom direct et centrage sur le groupe de points de l'entreprise choisie
+        m.fit_bounds(coords_focus, padding=(25, 25))
     else:
         m.location = [-11.65, 27.28]
         m.zoom_start = 10
 
     folium.LayerControl(collapsed=True).add_to(m)
-    st_folium(m, width="100%", height=600, key=f"carte_{entreprise_actuelle}_{len(coords_visibles)}")
+    st_folium(m, width="100%", height=600, key=f"carte_{entreprise_actuelle}_{len(coords_focus)}")
 
 with col_logos:
     st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
